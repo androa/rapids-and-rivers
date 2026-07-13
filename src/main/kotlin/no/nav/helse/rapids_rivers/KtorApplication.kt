@@ -5,6 +5,7 @@ import io.ktor.server.application.*
 import io.ktor.server.cio.*
 import io.ktor.server.engine.*
 import io.ktor.server.metrics.micrometer.*
+import io.ktor.server.request.acceptItems
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.micrometer.core.instrument.MeterRegistry
@@ -147,7 +148,12 @@ private fun Application.naisRoutings(
         }
 
         get(naisEndpoints.metricsEndpoint) {
-            call.respond(meterRegistry.scrape())
+            call.request.acceptItems().firstOrNull()?.let {
+                val contentType = ContentType.parse(it.value)
+                val metrics = meterRegistry.scrape(it.value)
+
+                call.respondText(metrics, contentType)
+            } ?: call.respond(HttpStatusCode.NotAcceptable, "Supported types: application/openmetrics-text and text/plain")
         }
     }
 }
